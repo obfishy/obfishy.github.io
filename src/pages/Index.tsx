@@ -1,18 +1,33 @@
 import { useState, useCallback } from 'react';
 import { ImageUploader } from '@/components/ImageUploader';
+import { VideoUploader } from '@/components/VideoUploader';
 import { ConfigPanel } from '@/components/ConfigPanel';
+import { VideoConfigPanel } from '@/components/VideoConfigPanel';
 import { ImagePreview } from '@/components/ImagePreview';
+import { VideoPreview } from '@/components/VideoPreview';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Download, Zap } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Download, Zap, Image as ImageIcon, Video } from 'lucide-react';
 import { toast } from 'sonner';
+import { extractVideoFrames, generateAnimatedLuaCode } from '@/utils/videoProcessor';
 
 const Index = () => {
+  // Image states
   const [imageData, setImageData] = useState<string | null>(null);
   const [width, setWidth] = useState(32);
   const [height, setHeight] = useState(32);
   const [frameSize, setFrameSize] = useState(20);
   const [guiName, setGuiName] = useState('PixelArtGUI');
+  
+  // Video states
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [videoFrames, setVideoFrames] = useState<ImageData[]>([]);
+  const [videoWidth, setVideoWidth] = useState(32);
+  const [videoHeight, setVideoHeight] = useState(32);
+  const [pixelSize, setPixelSize] = useState(10);
+  const [fps, setFps] = useState(30);
+  
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleImageSelect = useCallback((file: File) => {
@@ -29,6 +44,26 @@ const Index = () => {
     };
     reader.readAsDataURL(file);
   }, []);
+
+  const handleVideoSelect = useCallback(async (file: File) => {
+    setIsProcessing(true);
+    toast.info('Processing video... This may take a moment');
+
+    try {
+      const url = URL.createObjectURL(file);
+      setVideoUrl(url);
+
+      const frames = await extractVideoFrames(file, videoWidth, videoHeight, 300);
+      setVideoFrames(frames);
+      
+      setIsProcessing(false);
+      toast.success(`Video processed! Extracted ${frames.length} frames`);
+    } catch (error) {
+      console.error('Error processing video:', error);
+      setIsProcessing(false);
+      toast.error('Failed to process video');
+    }
+  }, [videoWidth, videoHeight]);
 
   const generateLuaCode = useCallback(async () => {
     if (!imageData) {
@@ -110,6 +145,40 @@ const Index = () => {
     }
   }, [imageData, width, height, frameSize, guiName]);
 
+  const generateVideoLuaCode = useCallback(() => {
+    if (videoFrames.length === 0) {
+      toast.error('Please upload and process a video first');
+      return;
+    }
+
+    setIsProcessing(true);
+
+    try {
+      const luaCode = generateAnimatedLuaCode(
+        videoFrames,
+        videoWidth,
+        videoHeight,
+        pixelSize,
+        fps
+      );
+
+      const blob = new Blob([luaCode], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'pixel_video.lua';
+      a.click();
+      URL.revokeObjectURL(url);
+
+      toast.success('Animated Lua code generated and downloaded!');
+    } catch (error) {
+      console.error('Error generating video Lua code:', error);
+      toast.error('Failed to generate video Lua code');
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [videoFrames, videoWidth, videoHeight, pixelSize, fps]);
+
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
       <div className="max-w-6xl mx-auto space-y-8">
@@ -126,61 +195,137 @@ const Index = () => {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-6">
-          <Card className="p-6 space-y-6 bg-card border-border">
-            <div>
-              <h2 className="text-2xl font-semibold mb-4">Upload Image</h2>
-              <ImageUploader onImageSelect={handleImageSelect} isProcessing={isProcessing} />
+        <Tabs defaultValue="image" className="w-full">
+          <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8">
+            <TabsTrigger value="image" className="gap-2">
+              <ImageIcon className="w-4 h-4" />
+              Image to GUI
+            </TabsTrigger>
+            <TabsTrigger value="video" className="gap-2">
+              <Video className="w-4 h-4" />
+              Video to GUI
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="image" className="space-y-6">
+            <div className="grid md:grid-cols-2 gap-6">
+              <Card className="p-6 space-y-6 bg-card border-border">
+                <div>
+                  <h2 className="text-2xl font-semibold mb-4">Upload Image</h2>
+                  <ImageUploader onImageSelect={handleImageSelect} isProcessing={isProcessing} />
+                </div>
+
+                <div>
+                  <h2 className="text-2xl font-semibold mb-4">Configuration</h2>
+                  <ConfigPanel
+                    width={width}
+                    height={height}
+                    frameSize={frameSize}
+                    guiName={guiName}
+                    onWidthChange={setWidth}
+                    onHeightChange={setHeight}
+                    onFrameSizeChange={setFrameSize}
+                    onGuiNameChange={setGuiName}
+                  />
+                </div>
+
+                <Button
+                  onClick={generateLuaCode}
+                  disabled={!imageData || isProcessing}
+                  className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-opacity"
+                  size="lg"
+                >
+                  <Download className="w-5 h-5 mr-2" />
+                  {isProcessing ? 'Generating...' : 'Generate & Download Lua Code'}
+                </Button>
+              </Card>
+
+              <Card className="p-6 space-y-4 bg-card border-border">
+                <h2 className="text-2xl font-semibold">Preview</h2>
+                <ImagePreview imageData={imageData} width={width} height={height} />
+                {imageData && (
+                  <div className="text-sm text-muted-foreground space-y-1 bg-secondary/50 p-4 rounded-lg">
+                    <p>• Output size: {width}x{height} pixels</p>
+                    <p>• Total frames: {width * height}</p>
+                    <p>• GUI dimensions: {width * frameSize}x{height * frameSize}</p>
+                  </div>
+                )}
+              </Card>
             </div>
+          </TabsContent>
 
-            <div>
-              <h2 className="text-2xl font-semibold mb-4">Configuration</h2>
-              <ConfigPanel
-                width={width}
-                height={height}
-                frameSize={frameSize}
-                guiName={guiName}
-                onWidthChange={setWidth}
-                onHeightChange={setHeight}
-                onFrameSizeChange={setFrameSize}
-                onGuiNameChange={setGuiName}
-              />
+          <TabsContent value="video" className="space-y-6">
+            <div className="grid md:grid-cols-2 gap-6">
+              <Card className="p-6 space-y-6 bg-card border-border">
+                <div>
+                  <h2 className="text-2xl font-semibold mb-4">Upload Video</h2>
+                  <VideoUploader onVideoSelect={handleVideoSelect} isProcessing={isProcessing} />
+                </div>
+
+                <div>
+                  <h2 className="text-2xl font-semibold mb-4">Video Configuration</h2>
+                  <VideoConfigPanel
+                    width={videoWidth}
+                    height={videoHeight}
+                    pixelSize={pixelSize}
+                    fps={fps}
+                    onWidthChange={setVideoWidth}
+                    onHeightChange={setVideoHeight}
+                    onPixelSizeChange={setPixelSize}
+                    onFpsChange={setFps}
+                  />
+                  <p className="text-xs text-muted-foreground mt-3">
+                    Note: Changing dimensions requires re-uploading the video
+                  </p>
+                </div>
+
+                <Button
+                  onClick={generateVideoLuaCode}
+                  disabled={videoFrames.length === 0 || isProcessing}
+                  className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-opacity"
+                  size="lg"
+                >
+                  <Download className="w-5 h-5 mr-2" />
+                  {isProcessing ? 'Generating...' : 'Generate Animated Lua Code'}
+                </Button>
+              </Card>
+
+              <Card className="p-6 space-y-4 bg-card border-border">
+                <h2 className="text-2xl font-semibold">Preview</h2>
+                <VideoPreview
+                  videoUrl={videoUrl}
+                  frames={videoFrames}
+                  width={videoWidth}
+                  height={videoHeight}
+                  fps={fps}
+                />
+                {videoFrames.length > 0 && (
+                  <div className="text-sm text-muted-foreground space-y-1 bg-secondary/50 p-4 rounded-lg">
+                    <p>• Total frames: {videoFrames.length}</p>
+                    <p>• Frame size: {videoWidth}x{videoHeight} pixels</p>
+                    <p>• GUI dimensions: {videoWidth * pixelSize}x{videoHeight * pixelSize}</p>
+                    <p>• Animation FPS: {fps}</p>
+                  </div>
+                )}
+              </Card>
             </div>
-
-            <Button
-              onClick={generateLuaCode}
-              disabled={!imageData || isProcessing}
-              className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-opacity"
-              size="lg"
-            >
-              <Download className="w-5 h-5 mr-2" />
-              {isProcessing ? 'Generating...' : 'Generate & Download Lua Code'}
-            </Button>
-          </Card>
-
-          <Card className="p-6 space-y-4 bg-card border-border">
-            <h2 className="text-2xl font-semibold">Preview</h2>
-            <ImagePreview imageData={imageData} width={width} height={height} />
-            {imageData && (
-              <div className="text-sm text-muted-foreground space-y-1 bg-secondary/50 p-4 rounded-lg">
-                <p>• Output size: {width}x{height} pixels</p>
-                <p>• Total frames: {width * height}</p>
-                <p>• GUI dimensions: {width * frameSize}x{height * frameSize}</p>
-              </div>
-            )}
-          </Card>
-        </div>
+          </TabsContent>
+        </Tabs>
 
         <Card className="p-6 bg-card/50 border-border">
           <h3 className="text-lg font-semibold mb-3">✨ Features</h3>
           <ul className="grid md:grid-cols-3 gap-4 text-sm text-muted-foreground">
             <li className="flex items-start gap-2">
               <span className="text-accent">•</span>
-              <span>Instant processing with no crashes</span>
+              <span>Image & video support</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-accent">•</span>
-              <span>Real-time pixelated preview</span>
+              <span>Animated pixel art from videos</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-accent">•</span>
+              <span>Real-time preview with playback</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-accent">•</span>
@@ -188,15 +333,11 @@ const Index = () => {
             </li>
             <li className="flex items-start gap-2">
               <span className="text-accent">•</span>
-              <span>Customizable dimensions</span>
+              <span>Customizable FPS & dimensions</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-accent">•</span>
-              <span>Efficient browser-based processing</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-accent">•</span>
-              <span>No installation required</span>
+              <span>No crashes or freezing</span>
             </li>
           </ul>
         </Card>
