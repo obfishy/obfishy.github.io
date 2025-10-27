@@ -16,27 +16,50 @@ export const VideoPreview = ({ videoUrl, frames, fps }: VideoPreviewProps) => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    canvas.width = frames[0].width * 10;
-    canvas.height = frames[0].height * 10;
+    // Dynamic scaling based on frame size
+    const baseSize = frames[0].width;
+    const scale = baseSize <= 32 ? 10 : baseSize <= 64 ? 6 : 4;
+    
+    canvas.width = frames[0].width * scale;
+    canvas.height = frames[0].height * scale;
 
     let currentFrame = 0;
-    const interval = setInterval(() => {
-      const frame = frames[currentFrame];
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = frame.width;
-      tempCanvas.height = frame.height;
-      const tempCtx = tempCanvas.getContext('2d');
-      
-      if (tempCtx) {
-        tempCtx.putImageData(frame, 0, 0);
-        ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(tempCanvas, 0, 0, canvas.width, canvas.height);
+    let animationFrame: number;
+    let lastTime = performance.now();
+
+    const animate = () => {
+      const currentTime = performance.now();
+      const deltaTime = currentTime - lastTime;
+
+      if (deltaTime >= 1000 / fps) {
+        const frame = frames[currentFrame];
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = frame.width;
+        tempCanvas.height = frame.height;
+        const tempCtx = tempCanvas.getContext('2d');
+        
+        if (tempCtx) {
+          // Clear canvas first to prevent double rendering
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          tempCtx.putImageData(frame, 0, 0);
+          ctx.imageSmoothingEnabled = false;
+          ctx.drawImage(tempCanvas, 0, 0, canvas.width, canvas.height);
+        }
+
+        currentFrame = (currentFrame + 1) % frames.length;
+        lastTime = currentTime;
       }
 
-      currentFrame = (currentFrame + 1) % frames.length;
-    }, 1000 / fps);
+      animationFrame = requestAnimationFrame(animate);
+    };
 
-    return () => clearInterval(interval);
+    animate();
+
+    return () => {
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+      }
+    };
   }, [frames, fps]);
 
   if (!videoUrl) {
@@ -56,12 +79,14 @@ export const VideoPreview = ({ videoUrl, frames, fps }: VideoPreviewProps) => {
   }
 
   return (
-    <div className="flex items-center justify-center bg-secondary/50 rounded-xl border border-border p-4 overflow-auto">
-      <canvas
-        ref={canvasRef}
-        className="max-w-full max-h-96"
-        style={{ imageRendering: 'pixelated' }}
-      />
+    <div className="flex items-center justify-center bg-secondary/50 rounded-xl border border-border p-4">
+      <div className="flex items-center justify-center w-full h-96">
+        <canvas
+          ref={canvasRef}
+          className="max-w-full max-h-full object-contain"
+          style={{ imageRendering: 'pixelated' }}
+        />
+      </div>
     </div>
   );
 };
