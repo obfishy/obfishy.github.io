@@ -62,55 +62,70 @@ export const generateAnimatedLuaCode = (
   fps: number,
   guiName: string
 ): string => {
-  // Compress frame data
+  // Compress frame data - convert to RGB values
   const frameData: string[] = [];
   
   frames.forEach((frame) => {
-    const pixels: string[] = [];
+    const pixels: number[] = [];
     for (let i = 0; i < frame.data.length; i += 4) {
-      const r = frame.data[i];
-      const g = frame.data[i + 1];
-      const b = frame.data[i + 2];
-      pixels.push(`{${r},${g},${b}}`);
+      pixels.push(frame.data[i], frame.data[i + 1], frame.data[i + 2]);
     }
-    frameData.push(`{${pixels.join(',')}}`);
+    // Create flat array of RGB values
+    frameData.push(pixels.join(','));
   });
 
-  // Generate compact animated Lua code
-  return `local sg=Instance.new("ScreenGui")
-sg.Name="${guiName}"
-sg.Parent=game.Players.LocalPlayer:WaitForChild("PlayerGui")
-local h=Instance.new("Frame")
-h.Name="VideoHolder"
-h.Size=UDim2.new(0,${width * pixelSize},0,${height * pixelSize})
-h.Position=UDim2.new(0.5,-${(width * pixelSize) / 2},0.5,-${(height * pixelSize) / 2})
-h.BackgroundTransparency=1
-h.Parent=sg
-local w,ht,s=${width},${height},${pixelSize}
-local px={}
-for y=0,ht-1 do
-for x=0,w-1 do
-local f=Instance.new("Frame")
-f.Size=UDim2.new(0,s,0,s)
-f.Position=UDim2.new(0,x*s,0,y*s)
-f.BackgroundColor3=Color3.new(0,0,0)
-f.BorderSizePixel=0
-f.Parent=h
-table.insert(px,f)
-if #px%50==0 then task.wait()end
+  const totalPixels = width * height;
+
+  // Generate optimized animated Lua code
+  return `-- Roblox Pixel Video Animation
+local sg = Instance.new("ScreenGui")
+sg.Name = "${guiName}"
+sg.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+
+local h = Instance.new("Frame")
+h.Name = "VideoHolder"
+h.Size = UDim2.new(0, ${width * pixelSize}, 0, ${height * pixelSize})
+h.Position = UDim2.new(0.5, -${Math.floor((width * pixelSize) / 2)}, 0.5, -${Math.floor((height * pixelSize) / 2)})
+h.BackgroundTransparency = 1
+h.Parent = sg
+
+-- Create pixel grid
+local pixels = {}
+local s = ${pixelSize}
+
+for y = 0, ${height - 1} do
+  for x = 0, ${width - 1} do
+    local f = Instance.new("Frame")
+    f.Size = UDim2.new(0, s, 0, s)
+    f.Position = UDim2.new(0, x * s, 0, y * s)
+    f.BackgroundColor3 = Color3.new(0, 0, 0)
+    f.BorderSizePixel = 0
+    f.Parent = h
+    table.insert(pixels, f)
+    if #pixels % 50 == 0 then task.wait() end
+  end
 end
-end
-local fr={${frameData.join(',')}}
+
+-- Frame data (RGB values)
+local frames = {
+${frameData.map(frame => `  {${frame}}`).join(',\n')}
+}
+
+-- Animate
 task.spawn(function()
-while true do
-for _,f in ipairs(fr)do
-for i,p in ipairs(px)do
-local c=f[i]
-p.BackgroundColor3=Color3.fromRGB(c[1],c[2],c[3])
-end
-task.wait(${1 / fps})
-end
-end
+  while true do
+    for _, frameData in ipairs(frames) do
+      for i = 1, ${totalPixels} do
+        local idx = (i - 1) * 3 + 1
+        pixels[i].BackgroundColor3 = Color3.fromRGB(
+          frameData[idx],
+          frameData[idx + 1],
+          frameData[idx + 2]
+        )
+      end
+      task.wait(${(1 / fps).toFixed(3)})
+    end
+  end
 end)
 `;
 };
