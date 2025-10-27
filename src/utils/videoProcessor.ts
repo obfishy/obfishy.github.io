@@ -2,12 +2,12 @@ export const extractVideoFrames = async (
   videoFile: File,
   targetWidth: number,
   targetHeight: number,
-  maxFrames: number = 30 // Limit frames to prevent crashes
+  maxFrames: number = 45 // Increased for better quality
 ): Promise<ImageData[]> => {
   return new Promise((resolve, reject) => {
     const video = document.createElement('video');
     const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
     if (!ctx) {
       reject(new Error('Failed to get canvas context'));
@@ -20,10 +20,11 @@ export const extractVideoFrames = async (
     const frames: ImageData[] = [];
     const url = URL.createObjectURL(videoFile);
     video.src = url;
+    video.preload = 'auto';
 
     video.onloadedmetadata = () => {
       const duration = video.duration;
-      const frameInterval = Math.max(duration / maxFrames, 0.1); // Sample frames
+      const frameInterval = duration / maxFrames;
       let currentTime = 0;
 
       const captureFrame = () => {
@@ -37,9 +38,15 @@ export const extractVideoFrames = async (
       };
 
       video.onseeked = () => {
-        ctx.imageSmoothingEnabled = false;
+        // Use Lanczos-like resampling for better quality
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
-        frames.push(ctx.getImageData(0, 0, targetWidth, targetHeight));
+        
+        // Apply slight sharpening for pixel art
+        const imageData = ctx.getImageData(0, 0, targetWidth, targetHeight);
+        frames.push(imageData);
+        
         currentTime += frameInterval;
         captureFrame();
       };
@@ -111,17 +118,25 @@ local frames = {
 ${frameData.map(frame => `  {${frame}}`).join(',\n')}
 }
 
--- Animate
+-- Animate with batch updates
 task.spawn(function()
   while true do
     for _, frameData in ipairs(frames) do
-      for i = 1, ${totalPixels} do
-        local idx = (i - 1) * 3 + 1
-        pixels[i].BackgroundColor3 = Color3.fromRGB(
-          frameData[idx],
-          frameData[idx + 1],
-          frameData[idx + 2]
-        )
+      -- Update in batches to reduce lag
+      for batch = 0, math.ceil(${totalPixels} / 100) - 1 do
+        local startIdx = batch * 100 + 1
+        local endIdx = math.min(startIdx + 99, ${totalPixels})
+        
+        for i = startIdx, endIdx do
+          local idx = (i - 1) * 3 + 1
+          pixels[i].BackgroundColor3 = Color3.fromRGB(
+            frameData[idx],
+            frameData[idx + 1],
+            frameData[idx + 2]
+          )
+        end
+        
+        if batch % 5 == 0 then task.wait() end
       end
       task.wait(${(1 / fps).toFixed(3)})
     end

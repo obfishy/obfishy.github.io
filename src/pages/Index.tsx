@@ -23,10 +23,10 @@ const Index = () => {
   // Video states
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoFrames, setVideoFrames] = useState<ImageData[]>([]);
-  const [videoWidth, setVideoWidth] = useState(16);
-  const [videoHeight, setVideoHeight] = useState(16);
-  const [pixelSize, setPixelSize] = useState(10);
-  const [fps, setFps] = useState(30);
+  const [videoWidth, setVideoWidth] = useState(48);
+  const [videoHeight, setVideoHeight] = useState(48);
+  const [pixelSize, setPixelSize] = useState(8);
+  const [fps, setFps] = useState(24);
   const [videoGuiName, setVideoGuiName] = useState('PixelVideo');
 
   const handleImageSelect = useCallback((file: File) => {
@@ -50,8 +50,8 @@ const Index = () => {
       const url = URL.createObjectURL(file);
       setVideoUrl(url);
       
-      toast.info('Extracting frames... (max 30 frames)');
-      const frames = await extractVideoFrames(file, videoWidth, videoHeight, 30);
+      toast.info('Extracting frames... (up to 45 frames)');
+      const frames = await extractVideoFrames(file, videoWidth, videoHeight, 45);
       setVideoFrames(frames);
       
       setIsProcessing(false);
@@ -319,7 +319,7 @@ end)
             </li>
             <li className="flex items-start gap-2">
               <span className="text-accent">•</span>
-              <span>Video limited to 30 frames max</span>
+              <span>Higher quality 48x48 video default</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-accent">•</span>

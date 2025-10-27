@@ -34,10 +34,10 @@ export const VideoConfigPanel = ({
           <Input
             id="video-width"
             type="number"
-            min="8"
-            max="64"
+            min="16"
+            max="96"
             value={width}
-            onChange={(e) => onWidthChange(parseInt(e.target.value) || 16)}
+            onChange={(e) => onWidthChange(parseInt(e.target.value) || 48)}
           />
         </div>
         <div className="space-y-2">
@@ -45,10 +45,10 @@ export const VideoConfigPanel = ({
           <Input
             id="video-height"
             type="number"
-            min="8"
-            max="64"
+            min="16"
+            max="96"
             value={height}
-            onChange={(e) => onHeightChange(parseInt(e.target.value) || 16)}
+            onChange={(e) => onHeightChange(parseInt(e.target.value) || 48)}
           />
         </div>
       </div>
@@ -89,10 +89,11 @@ export const VideoConfigPanel = ({
       </div>
       
       <div className="text-xs text-muted-foreground bg-secondary/30 p-3 rounded-lg">
-        <p className="font-semibold mb-1">⚠️ Performance Tips:</p>
-        <p>• Keep dimensions small (16x16 or 32x32)</p>
-        <p>• Lower FPS reduces lag (15-30 FPS)</p>
-        <p>• Only 30 frames extracted to prevent crashes</p>
+        <p className="font-semibold mb-1">⚡ Optimized Settings:</p>
+        <p>• 48x48 default for better quality</p>
+        <p>• 24 FPS smooth cinematic playback</p>
+        <p>• 45 frames max with batch rendering</p>
+        <p>• Up to 96x96 supported!</p>
       </div>
     </div>
   );

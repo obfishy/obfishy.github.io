@@ -53,7 +53,7 @@ export const VideoUploader = ({ onVideoSelect, isProcessing }: VideoUploaderProp
           <p className="text-lg font-medium mb-1">
             {isProcessing ? 'Processing video...' : 'Drop video here or click to upload'}
           </p>
-          <p className="text-sm text-muted-foreground">Supports MP4 and WebM (max 30 frames)</p>
+          <p className="text-sm text-muted-foreground">Supports MP4 and WebM (up to 45 frames)</p>
         </div>
       </label>
     </div>
