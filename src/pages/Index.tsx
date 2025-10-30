@@ -1,16 +1,17 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { ImageUploader } from '@/components/ImageUploader';
 import { VideoUploader } from '@/components/VideoUploader';
 import { ConfigPanel } from '@/components/ConfigPanel';
 import { VideoConfigPanel } from '@/components/VideoConfigPanel';
 import { ImagePreview } from '@/components/ImagePreview';
 import { VideoPreview } from '@/components/VideoPreview';
+import { VideoControls } from '@/components/VideoControls';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Download, Zap, Image as ImageIcon, Video } from 'lucide-react';
+import { Download, Zap, Image as ImageIcon, Video, FileText } from 'lucide-react';
 import { toast } from 'sonner';
-import { extractVideoFrames, generateAnimatedLuaCode } from '@/utils/videoProcessor';
+import { extractVideoFrames, generateAnimatedLuaCode, estimateFileSize, type QualityPreset } from '@/utils/videoProcessor';
 
 const Index = () => {
   const [imageData, setImageData] = useState<string | null>(null);
@@ -28,6 +29,15 @@ const Index = () => {
   const [pixelSize, setPixelSize] = useState(8);
   const [fps, setFps] = useState(24);
   const [videoGuiName, setVideoGuiName] = useState('PixelVideo');
+  const [quality, setQuality] = useState<QualityPreset>('high');
+  const [loop, setLoop] = useState(true);
+  const [maxFrames, setMaxFrames] = useState(45);
+  const [startFrame, setStartFrame] = useState(0);
+  const [endFrame, setEndFrame] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [currentFrame, setCurrentFrame] = useState(0);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const videoPreviewRef = useRef<any>(null);
 
   const handleImageSelect = useCallback((file: File) => {
     setIsProcessing(true);
@@ -46,22 +56,32 @@ const Index = () => {
 
   const handleVideoSelect = useCallback(async (file: File) => {
     setIsProcessing(true);
+    setIsPlaying(false);
     try {
       const url = URL.createObjectURL(file);
       setVideoUrl(url);
       
-      toast.info('Extracting frames... (up to 45 frames)');
-      const frames = await extractVideoFrames(file, videoWidth, videoHeight, 45);
+      toast.info(`Extracting frames with ${quality} quality...`);
+      const frames = await extractVideoFrames(file, videoWidth, videoHeight, maxFrames, {
+        quality,
+        startFrame,
+        endFrame: endFrame > 0 ? endFrame : undefined,
+        deduplication: true,
+      });
       setVideoFrames(frames);
+      setCurrentFrame(0);
+      
+      const fileSizeKB = estimateFileSize(frames, videoWidth, videoHeight);
       
       setIsProcessing(false);
-      toast.success(`Video loaded! ${frames.length} frames extracted`);
+      toast.success(`Video loaded! ${frames.length} frames extracted (~${fileSizeKB}KB)`);
+      setIsPlaying(true);
     } catch (error) {
       console.error('Error processing video:', error);
       setIsProcessing(false);
       toast.error('Failed to process video');
     }
-  }, [videoWidth, videoHeight]);
+  }, [videoWidth, videoHeight, maxFrames, quality, startFrame, endFrame]);
 
   const generateLuaCode = useCallback(async () => {
     if (!imageData) {
@@ -161,7 +181,8 @@ end)
         videoHeight,
         pixelSize,
         fps,
-        videoGuiName
+        videoGuiName,
+        loop
       );
 
       const blob = new Blob([luaCode], { type: 'text/plain' });
@@ -172,12 +193,13 @@ end)
       a.click();
       URL.revokeObjectURL(url);
 
-      toast.success('Video Lua code generated!');
+      const fileSizeKB = estimateFileSize(videoFrames, videoWidth, videoHeight);
+      toast.success(`Video Lua code generated! (~${fileSizeKB}KB)`);
     } catch (error) {
       console.error('Error generating video Lua code:', error);
       toast.error('Failed to generate video Lua code');
     }
-  }, [videoFrames, videoWidth, videoHeight, pixelSize, fps, videoGuiName]);
+  }, [videoFrames, videoWidth, videoHeight, pixelSize, fps, videoGuiName, loop]);
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
@@ -271,11 +293,21 @@ end)
                     pixelSize={pixelSize}
                     fps={fps}
                     guiName={videoGuiName}
+                    quality={quality}
+                    loop={loop}
+                    maxFrames={maxFrames}
+                    startFrame={startFrame}
+                    endFrame={endFrame}
                     onWidthChange={setVideoWidth}
                     onHeightChange={setVideoHeight}
                     onPixelSizeChange={setPixelSize}
                     onFpsChange={setFps}
                     onGuiNameChange={setVideoGuiName}
+                    onQualityChange={setQuality}
+                    onLoopChange={setLoop}
+                    onMaxFramesChange={setMaxFrames}
+                    onStartFrameChange={setStartFrame}
+                    onEndFrameChange={setEndFrame}
                   />
                 </div>
 
@@ -292,14 +324,40 @@ end)
 
               <Card className="p-6 space-y-4 bg-card border-border">
                 <h2 className="text-2xl font-semibold">Preview</h2>
-                <VideoPreview videoUrl={videoUrl} frames={videoFrames} fps={fps} />
+                <VideoPreview 
+                  ref={videoPreviewRef}
+                  videoUrl={videoUrl} 
+                  frames={videoFrames} 
+                  fps={fps}
+                  isPlaying={isPlaying}
+                  currentFrame={currentFrame}
+                  playbackSpeed={playbackSpeed}
+                  onFrameChange={setCurrentFrame}
+                />
                 {videoFrames.length > 0 && (
-                  <div className="text-sm text-muted-foreground space-y-1 bg-secondary/50 p-4 rounded-lg">
-                    <p>• Resolution: {videoWidth}x{videoHeight}</p>
-                    <p>• Frames: {videoFrames.length}</p>
-                    <p>• FPS: {fps}</p>
-                    <p className="text-accent">• Optimized to prevent crashes</p>
-                  </div>
+                  <>
+                    <VideoControls
+                      isPlaying={isPlaying}
+                      currentFrame={currentFrame}
+                      totalFrames={videoFrames.length}
+                      speed={playbackSpeed}
+                      onPlayPause={() => setIsPlaying(!isPlaying)}
+                      onReset={() => setCurrentFrame(0)}
+                      onFrameChange={setCurrentFrame}
+                      onSpeedChange={setPlaybackSpeed}
+                    />
+                    <div className="text-sm text-muted-foreground space-y-1 bg-secondary/50 p-4 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <FileText className="w-4 h-4 text-accent" />
+                        <span className="font-medium text-foreground">Output Info</span>
+                      </div>
+                      <p>• Resolution: {videoWidth}x{videoHeight} ({videoWidth * videoHeight} pixels)</p>
+                      <p>• Frames: {videoFrames.length} @ {fps} FPS</p>
+                      <p>• Quality: {quality.charAt(0).toUpperCase() + quality.slice(1)}</p>
+                      <p>• File size: ~{estimateFileSize(videoFrames, videoWidth, videoHeight)}KB</p>
+                      <p className="text-accent">• {loop ? 'Loops continuously' : 'Plays once'}</p>
+                    </div>
+                  </>
                 )}
               </Card>
             </div>
@@ -319,19 +377,27 @@ end)
             </li>
             <li className="flex items-start gap-2">
               <span className="text-accent">•</span>
-              <span>Higher quality 48x48 video default</span>
+              <span>Quality presets (Low to Ultra)</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-accent">•</span>
-              <span>Real-time pixelated preview</span>
+              <span>Frame deduplication & sharpening</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-accent">•</span>
-              <span>Drag & drop support</span>
+              <span>Video trimming & frame range</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-accent">•</span>
-              <span>Browser-based, no installation</span>
+              <span>Playback controls with speed adjust</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-accent">•</span>
+              <span>Real-time preview with scrubbing</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-accent">•</span>
+              <span>Loop control & file size estimates</span>
             </li>
           </ul>
         </Card>
