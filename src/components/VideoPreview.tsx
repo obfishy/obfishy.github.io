@@ -63,14 +63,16 @@ export const VideoPreview = forwardRef<VideoPreviewRef, VideoPreviewProps>(
         const currentTime = performance.now();
         const deltaTime = currentTime - lastTimeRef.current;
         const adjustedFps = fps * playbackSpeed;
+        const frameInterval = 1000 / adjustedFps;
 
-        if (isPlaying && deltaTime >= 1000 / adjustedFps) {
-          renderFrame(currentFrameRef.current);
+        // Always render the current frame for smooth display
+        renderFrame(currentFrameRef.current);
+
+        // Only advance frame when playing and enough time has passed
+        if (isPlaying && deltaTime >= frameInterval) {
           currentFrameRef.current = (currentFrameRef.current + 1) % frames.length;
           onFrameChange?.(currentFrameRef.current);
-          lastTimeRef.current = currentTime;
-        } else if (!isPlaying) {
-          renderFrame(currentFrameRef.current);
+          lastTimeRef.current = currentTime - (deltaTime % frameInterval); // Carry over excess time
         }
 
         animationFrameRef.current = requestAnimationFrame(animate);
