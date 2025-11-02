@@ -13,7 +13,7 @@ export const VideoUploader = ({ onVideoSelect, isProcessing }: VideoUploaderProp
       if (isProcessing) return;
 
       const file = e.dataTransfer.files[0];
-      if (file && (file.type === 'video/mp4' || file.type === 'video/webm')) {
+      if (file && (file.type.startsWith('video/') || file.type === 'image/gif')) {
         onVideoSelect(file);
       }
     },
@@ -39,7 +39,7 @@ export const VideoUploader = ({ onVideoSelect, isProcessing }: VideoUploaderProp
     >
       <input
         type="file"
-        accept="video/mp4,video/webm"
+        accept="video/*,image/gif"
         onChange={handleFileInput}
         className="hidden"
         id="video-upload"
@@ -53,7 +53,7 @@ export const VideoUploader = ({ onVideoSelect, isProcessing }: VideoUploaderProp
           <p className="text-lg font-medium mb-1">
             {isProcessing ? 'Processing video...' : 'Drop video here or click to upload'}
           </p>
-          <p className="text-sm text-muted-foreground">Supports MP4 and WebM (up to 45 frames)</p>
+          <p className="text-sm text-muted-foreground">Supports MP4, WebM, MOV, GIF (up to 300 frames)</p>
         </div>
       </label>
     </div>

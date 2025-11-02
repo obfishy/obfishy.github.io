@@ -12,12 +12,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Download, Zap, Image as ImageIcon, Video, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { extractVideoFrames, generateAnimatedLuaCode, estimateFileSize, type QualityPreset } from '@/utils/videoProcessor';
+import { extractGifFrames, isGif } from '@/utils/gifProcessor';
 
 const Index = () => {
   const [imageData, setImageData] = useState<string | null>(null);
-  const [width, setWidth] = useState(32);
-  const [height, setHeight] = useState(32);
-  const [frameSize, setFrameSize] = useState(20);
+  const [imageFrames, setImageFrames] = useState<ImageData[]>([]);
+  const [width, setWidth] = useState(64);
+  const [height, setHeight] = useState(64);
+  const [frameSize, setFrameSize] = useState(15);
   const [guiName, setGuiName] = useState('PixelArtGUI');
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -39,19 +41,34 @@ const Index = () => {
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const videoPreviewRef = useRef<any>(null);
 
-  const handleImageSelect = useCallback((file: File) => {
+  const handleImageSelect = useCallback(async (file: File) => {
     setIsProcessing(true);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setImageData(e.target?.result as string);
-      setIsProcessing(false);
-      toast.success('Image loaded successfully!');
-    };
-    reader.onerror = () => {
-      setIsProcessing(false);
+    try {
+      // Check if it's a GIF
+      if (isGif(file)) {
+        const frames = await extractGifFrames(file);
+        setImageFrames(frames);
+        setImageData(URL.createObjectURL(file));
+        toast.success(`GIF loaded! ${frames.length} frame(s)`);
+      } else {
+        // Regular image
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setImageData(e.target?.result as string);
+          setImageFrames([]);
+          toast.success('Image loaded successfully!');
+        };
+        reader.onerror = () => {
+          throw new Error('Failed to read file');
+        };
+        reader.readAsDataURL(file);
+      }
+    } catch (error) {
+      console.error('Error loading image:', error);
       toast.error('Failed to load image');
-    };
-    reader.readAsDataURL(file);
+    } finally {
+      setIsProcessing(false);
+    }
   }, []);
 
   const handleVideoSelect = useCallback(async (file: File) => {
@@ -122,11 +139,11 @@ const Index = () => {
           const r = pixels[index];
           const g = pixels[index + 1];
           const b = pixels[index + 2];
-          pixelData.push(`{${x},${y},${r},${g},${b}}`);
+          pixelData.push(`{${r},${g},${b}}`);
         }
       }
 
-      // Generate optimized Lua code that builds gradually
+      // Generate optimized Lua code with instant rendering
       let luaCode = `local sg=Instance.new("ScreenGui")
 sg.Name="${guiName}"
 sg.Parent=game.Players.LocalPlayer:WaitForChild("PlayerGui")
@@ -138,17 +155,19 @@ h.BackgroundTransparency=1
 h.Parent=sg
 local d={${pixelData.join(',')}}
 local s=${frameSize}
-task.spawn(function()
-for i,p in ipairs(d)do
+-- Create all pixels instantly
+for y=0,${height - 1}do
+for x=0,${width - 1}do
+local i=y*${width}+x+1
+local p=d[i]
 local f=Instance.new("Frame")
 f.Size=UDim2.new(0,s,0,s)
-f.Position=UDim2.new(0,p[1]*s,0,p[2]*s)
-f.BackgroundColor3=Color3.fromRGB(p[3],p[4],p[5])
+f.Position=UDim2.new(0,x*s,0,y*s)
+f.BackgroundColor3=Color3.fromRGB(p[1],p[2],p[3])
 f.BorderSizePixel=0
 f.Parent=h
-if i%50==0 then task.wait()end
 end
-end)
+end
 `;
 
       const blob = new Blob([luaCode], { type: 'text/plain' });
@@ -264,13 +283,21 @@ end)
 
               <Card className="p-6 space-y-4 bg-card border-border">
                 <h2 className="text-2xl font-semibold">Preview</h2>
-                <ImagePreview imageData={imageData} width={width} height={height} />
+                <ImagePreview 
+                  imageData={imageData} 
+                  width={width} 
+                  height={height}
+                  frames={imageFrames.length > 0 ? imageFrames : undefined}
+                  fps={10}
+                  isPlaying={true}
+                />
                 {imageData && (
                   <div className="text-sm text-muted-foreground space-y-1 bg-secondary/50 p-4 rounded-lg">
                     <p>• Output: {width}x{height} pixels</p>
-                    <p>• Frames: {width * height}</p>
-                    <p>• Size: {width * frameSize}x{height * frameSize}</p>
-                    <p className="text-accent">• Builds gradually to prevent lag</p>
+                    <p>• Total pixels: {width * height}</p>
+                    <p>• Display size: {width * frameSize}x{height * frameSize}</p>
+                    <p className="text-accent">• Instant rendering - all pixels at once</p>
+                    {imageFrames.length > 0 && <p className="text-accent">• Animated GIF with {imageFrames.length} frame(s)</p>}
                   </div>
                 )}
               </Card>
@@ -369,7 +396,15 @@ end)
           <ul className="grid md:grid-cols-3 gap-4 text-sm text-muted-foreground">
             <li className="flex items-start gap-2">
               <span className="text-accent">•</span>
-              <span>Gradual building prevents Roblox lag</span>
+              <span>Instant pixel rendering (all at once)</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-accent">•</span>
+              <span>Supports up to 480p resolution</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-accent">•</span>
+              <span>Animated GIF support</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-accent">•</span>

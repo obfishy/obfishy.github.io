@@ -30,7 +30,7 @@ export const ConfigPanel = ({
           id="width"
           type="number"
           min="1"
-          max="200"
+          max="854"
           value={width}
           onChange={(e) => onWidthChange(parseInt(e.target.value) || 32)}
           className="bg-secondary border-border"
@@ -42,7 +42,7 @@ export const ConfigPanel = ({
           id="height"
           type="number"
           min="1"
-          max="200"
+          max="480"
           value={height}
           onChange={(e) => onHeightChange(parseInt(e.target.value) || 32)}
           className="bg-secondary border-border"

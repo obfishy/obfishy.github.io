@@ -158,98 +158,60 @@ export const generateAnimatedLuaCode = (
   guiName: string,
   loop: boolean = true
 ): string => {
-  // Compress frame data - convert to RGB values with better encoding
-  const frameData: string[] = [];
-  
-  frames.forEach((frame) => {
-    const pixels: number[] = [];
+  // Generate optimized Lua code with instant pixel updates
+  const frameDataStrings = frames.map(frame => {
+    const pixels: string[] = [];
     for (let i = 0; i < frame.data.length; i += 4) {
-      pixels.push(frame.data[i], frame.data[i + 1], frame.data[i + 2]);
+      pixels.push(`{${frame.data[i]},${frame.data[i + 1]},${frame.data[i + 2]}}`);
     }
-    frameData.push(pixels.join(','));
+    return `  {${pixels.join(',')}}`;
   });
 
-  const totalPixels = width * height;
-  const loopCode = loop ? 'while true do' : 'for playCount = 1, 1 do';
-
-  // Generate optimized animated Lua code with pre-rendering
-  return `-- Roblox Pixel Video Animation (${frames.length} frames @ ${fps}fps)
--- Enhanced Quality & Performance
+  let luaCode = `-- Pixel Animation by Image to GUI Converter
 local sg = Instance.new("ScreenGui")
 sg.Name = "${guiName}"
 sg.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
-
 local h = Instance.new("Frame")
-h.Name = "VideoHolder"
+h.Name = "Holder"
 h.Size = UDim2.new(0, ${width * pixelSize}, 0, ${height * pixelSize})
-h.Position = UDim2.new(0.5, -${Math.floor((width * pixelSize) / 2)}, 0.5, -${Math.floor((height * pixelSize) / 2)})
+h.Position = UDim2.new(0.5, -${(width * pixelSize) / 2}, 0.5, -${(height * pixelSize) / 2})
 h.BackgroundTransparency = 1
 h.Parent = sg
 
--- Create pixel grid with optimized rendering
+-- Pre-create all pixel frames
 local pixels = {}
-local s = ${pixelSize}
-local batchSize = 100
-
-print("Building pixel grid...")
 for y = 0, ${height - 1} do
   for x = 0, ${width - 1} do
     local f = Instance.new("Frame")
-    f.Size = UDim2.new(0, s, 0, s)
-    f.Position = UDim2.new(0, x * s, 0, y * s)
-    f.BackgroundColor3 = Color3.new(0, 0, 0)
+    f.Size = UDim2.new(0, ${pixelSize}, 0, ${pixelSize})
+    f.Position = UDim2.new(0, x * ${pixelSize}, 0, y * ${pixelSize})
     f.BorderSizePixel = 0
     f.Parent = h
     table.insert(pixels, f)
-    if #pixels % 50 == 0 then task.wait() end
   end
 end
 
--- Frame data (RGB values)
+-- Animation data
 local frames = {
-${frameData.map(frame => `  {${frame}}`).join(',\n')}
+${frameDataStrings.join(',\n')}
 }
 
--- Smooth animation with frame interpolation
-print("Starting animation...")
+-- Animation loop with instant frame updates
+local currentFrame = 1
 task.spawn(function()
-  local lastUpdate = tick()
-  local targetFrameTime = ${(1 / fps).toFixed(4)}
-  
-  ${loopCode}
-    for frameIdx, frameData in ipairs(frames) do
-      local frameStart = tick()
-      
-      -- Batch update pixels for smooth performance
-      for batch = 0, math.ceil(${totalPixels} / batchSize) - 1 do
-        local startIdx = batch * batchSize + 1
-        local endIdx = math.min(startIdx + batchSize - 1, ${totalPixels})
-        
-        for i = startIdx, endIdx do
-          local dataIdx = (i - 1) * 3 + 1
-          pixels[i].BackgroundColor3 = Color3.fromRGB(
-            frameData[dataIdx],
-            frameData[dataIdx + 1],
-            frameData[dataIdx + 2]
-          )
-        end
-        
-        -- Yield every few batches to prevent frame drops
-        if batch % 3 == 0 then task.wait() end
-      end
-      
-      -- Precise frame timing
-      local elapsed = tick() - frameStart
-      local waitTime = math.max(0, targetFrameTime - elapsed)
-      if waitTime > 0 then
-        task.wait(waitTime)
-      else
-        task.wait() -- Yield to prevent freezing
-      end
+  while ${loop ? 'true' : 'currentFrame <= #frames'} do
+    local frameData = frames[currentFrame]
+    -- Update all pixels at once for smooth animation
+    for i, p in ipairs(frameData) do
+      pixels[i].BackgroundColor3 = Color3.fromRGB(p[1], p[2], p[3])
     end
+    currentFrame = currentFrame % #frames + 1
+    task.wait(${1 / fps})
   end
 end)
 `;
+  
+  return luaCode;
 };
 
 // Estimate file size in KB

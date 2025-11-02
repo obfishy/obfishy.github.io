@@ -11,7 +11,7 @@ export const ImageUploader = ({ onImageSelect, isProcessing }: ImageUploaderProp
     (e: React.DragEvent<HTMLDivElement>) => {
       e.preventDefault();
       const file = e.dataTransfer.files[0];
-      if (file && file.type.startsWith('image/')) {
+      if (file && (file.type.startsWith('image/') || file.type === 'image/gif')) {
         onImageSelect(file);
       }
     },
@@ -50,7 +50,7 @@ export const ImageUploader = ({ onImageSelect, isProcessing }: ImageUploaderProp
         {isProcessing ? 'Processing...' : 'Drop your image here'}
       </h3>
       <p className="text-muted-foreground">or click to browse</p>
-      <p className="text-sm text-muted-foreground mt-2">Supports PNG, JPG, JPEG</p>
+      <p className="text-sm text-muted-foreground mt-2">Supports PNG, JPG, JPEG, GIF</p>
     </div>
   );
 };

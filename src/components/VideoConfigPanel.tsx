@@ -75,7 +75,7 @@ export const VideoConfigPanel = ({
             id="video-width"
             type="number"
             min="16"
-            max="96"
+            max="854"
             value={width}
             onChange={(e) => onWidthChange(parseInt(e.target.value) || 48)}
           />
@@ -86,7 +86,7 @@ export const VideoConfigPanel = ({
             id="video-height"
             type="number"
             min="16"
-            max="96"
+            max="480"
             value={height}
             onChange={(e) => onHeightChange(parseInt(e.target.value) || 48)}
           />
@@ -124,8 +124,8 @@ export const VideoConfigPanel = ({
           id="max-frames"
           value={[maxFrames]}
           min={10}
-          max={90}
-          step={5}
+          max={300}
+          step={10}
           onValueChange={([value]) => onMaxFramesChange(value)}
           className="mt-2"
         />
@@ -173,9 +173,9 @@ export const VideoConfigPanel = ({
       <div className="text-xs text-muted-foreground bg-secondary/30 p-3 rounded-lg">
         <p className="font-semibold mb-1">💡 Tips:</p>
         <p>• High quality: Best for detailed videos</p>
-        <p>• More frames: Smoother but larger file</p>
+        <p>• Up to 854x480 (480p) supported</p>
+        <p>• More frames: Smoother animation</p>
         <p>• Frame range: Trim unwanted sections</p>
-        <p>• Lower resolution: Better performance</p>
       </div>
     </div>
   );
