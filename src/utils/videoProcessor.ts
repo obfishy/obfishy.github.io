@@ -5,6 +5,7 @@ export interface VideoProcessingOptions {
   startFrame?: number;
   endFrame?: number;
   deduplication?: boolean;
+  interpolation?: number; // Multiplier for frame interpolation (1 = none, 2 = double frames, etc.)
 }
 
 // Enhanced frame extraction with quality options
@@ -15,9 +16,9 @@ export const extractVideoFrames = async (
   maxFrames: number = 45,
   options: VideoProcessingOptions = {}
 ): Promise<ImageData[]> => {
-  const { quality = 'high', startFrame = 0, endFrame, deduplication = true } = options;
+  const { quality = 'high', startFrame = 0, endFrame, deduplication = true, interpolation = 1 } = options;
   
-  return new Promise((resolve, reject) => {
+  const frames = await new Promise<ImageData[]>((resolve, reject) => {
     const video = document.createElement('video');
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -108,6 +109,51 @@ export const extractVideoFrames = async (
       reject(new Error('Failed to load video'));
     };
   });
+  
+  // Apply frame interpolation if requested
+  if (interpolation > 1) {
+    return interpolateFrames(frames, interpolation);
+  }
+  
+  return frames;
+};
+
+// Interpolate between frames for smoother animation
+const interpolateFrames = (frames: ImageData[], multiplier: number): ImageData[] => {
+  if (frames.length < 2 || multiplier <= 1) {
+    return frames;
+  }
+
+  const interpolated: ImageData[] = [];
+  
+  for (let i = 0; i < frames.length - 1; i++) {
+    const frame1 = frames[i];
+    const frame2 = frames[i + 1];
+    
+    // Add the original frame
+    interpolated.push(frame1);
+    
+    // Generate interpolated frames between frame1 and frame2
+    for (let step = 1; step < multiplier; step++) {
+      const t = step / multiplier; // Interpolation factor (0 to 1)
+      const newFrame = new ImageData(frame1.width, frame1.height);
+      
+      // Interpolate each pixel
+      for (let j = 0; j < frame1.data.length; j += 4) {
+        newFrame.data[j] = Math.round(frame1.data[j] * (1 - t) + frame2.data[j] * t); // R
+        newFrame.data[j + 1] = Math.round(frame1.data[j + 1] * (1 - t) + frame2.data[j + 1] * t); // G
+        newFrame.data[j + 2] = Math.round(frame1.data[j + 2] * (1 - t) + frame2.data[j + 2] * t); // B
+        newFrame.data[j + 3] = 255; // A
+      }
+      
+      interpolated.push(newFrame);
+    }
+  }
+  
+  // Add the last frame
+  interpolated.push(frames[frames.length - 1]);
+  
+  return interpolated;
 };
 
 // Sharpen filter for better quality

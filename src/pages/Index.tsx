@@ -37,6 +37,7 @@ const Index = () => {
   const [maxFrames, setMaxFrames] = useState(45);
   const [startFrame, setStartFrame] = useState(0);
   const [endFrame, setEndFrame] = useState(0);
+  const [interpolation, setInterpolation] = useState(1);
   const [isPlaying, setIsPlaying] = useState(true);
   const [currentFrame, setCurrentFrame] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
@@ -86,6 +87,7 @@ const Index = () => {
         startFrame,
         endFrame: endFrame > 0 ? endFrame : undefined,
         deduplication: true,
+        interpolation,
       });
       setVideoFrames(frames);
       setCurrentFrame(0);
@@ -100,7 +102,7 @@ const Index = () => {
       setIsProcessing(false);
       toast.error('Failed to process video');
     }
-  }, [videoWidth, videoHeight, maxFrames, quality, startFrame, endFrame]);
+  }, [videoWidth, videoHeight, maxFrames, quality, startFrame, endFrame, interpolation]);
 
   const generateLuaCode = useCallback(async () => {
     if (!imageData) {
@@ -367,6 +369,7 @@ end
                     startFrame={startFrame}
                     endFrame={endFrame}
                     useViewportSize={useVideoViewportSize}
+                    interpolation={interpolation}
                     onWidthChange={setVideoWidth}
                     onHeightChange={setVideoHeight}
                     onPixelSizeChange={setPixelSize}
@@ -378,6 +381,7 @@ end
                     onStartFrameChange={setStartFrame}
                     onEndFrameChange={setEndFrame}
                     onUseViewportSizeChange={setUseVideoViewportSize}
+                    onInterpolationChange={setInterpolation}
                   />
                 </div>
 

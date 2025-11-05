@@ -19,6 +19,7 @@ interface VideoConfigPanelProps {
   startFrame: number;
   endFrame: number;
   useViewportSize: boolean;
+  interpolation: number;
   onWidthChange: (value: number) => void;
   onHeightChange: (value: number) => void;
   onPixelSizeChange: (value: number) => void;
@@ -30,6 +31,7 @@ interface VideoConfigPanelProps {
   onStartFrameChange: (value: number) => void;
   onEndFrameChange: (value: number) => void;
   onUseViewportSizeChange: (value: boolean) => void;
+  onInterpolationChange: (value: number) => void;
 }
 
 export const VideoConfigPanel = ({
@@ -44,6 +46,7 @@ export const VideoConfigPanel = ({
   startFrame,
   endFrame,
   useViewportSize,
+  interpolation,
   onWidthChange,
   onHeightChange,
   onPixelSizeChange,
@@ -55,6 +58,7 @@ export const VideoConfigPanel = ({
   onStartFrameChange,
   onEndFrameChange,
   onUseViewportSizeChange,
+  onInterpolationChange,
 }: VideoConfigPanelProps) => {
   return (
     <div className="space-y-4">
@@ -145,6 +149,22 @@ export const VideoConfigPanel = ({
         />
       </div>
 
+      <div>
+        <Label htmlFor="interpolation">Frame Interpolation: {interpolation}x</Label>
+        <Slider
+          id="interpolation"
+          value={[interpolation]}
+          min={1}
+          max={4}
+          step={1}
+          onValueChange={([value]) => onInterpolationChange(value)}
+          className="mt-2"
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          Generates intermediate frames for smoother animation
+        </p>
+      </div>
+
       <div className="space-y-2">
         <Label>Frame Range</Label>
         <div className="grid grid-cols-2 gap-2">
@@ -188,7 +208,7 @@ export const VideoConfigPanel = ({
         <p className="font-semibold mb-1">💡 Tips:</p>
         <p>• High quality: Best for detailed videos</p>
         <p>• Up to 854x480 (480p) supported</p>
-        <p>• More frames: Smoother animation</p>
+        <p>• Interpolation: Smoother but more frames</p>
         <p>• Frame range: Trim unwanted sections</p>
       </div>
     </div>
