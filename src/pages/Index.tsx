@@ -21,6 +21,7 @@ const Index = () => {
   const [height, setHeight] = useState(64);
   const [frameSize, setFrameSize] = useState(15);
   const [guiName, setGuiName] = useState('PixelArtGUI');
+  const [useViewportSize, setUseViewportSize] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Video states
@@ -39,6 +40,7 @@ const Index = () => {
   const [isPlaying, setIsPlaying] = useState(true);
   const [currentFrame, setCurrentFrame] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [useVideoViewportSize, setUseVideoViewportSize] = useState(false);
   const videoPreviewRef = useRef<any>(null);
 
   const handleImageSelect = useCallback(async (file: File) => {
@@ -144,7 +146,42 @@ const Index = () => {
       }
 
       // Generate optimized Lua code with instant rendering
-      let luaCode = `local sg=Instance.new("ScreenGui")
+      let luaCode = '';
+      
+      if (useViewportSize) {
+        // Generate code that scales to viewport
+        luaCode = `local sg=Instance.new("ScreenGui")
+sg.Name="${guiName}"
+sg.Parent=game.Players.LocalPlayer:WaitForChild("PlayerGui")
+local cam=workspace.CurrentCamera
+local vp=cam.ViewportSize
+local w,h=${width},${height}
+local s=math.min(vp.X/w,vp.Y/h)
+local totalW,totalH=w*s,h*s
+local h=Instance.new("Frame")
+h.Name="Holder"
+h.Size=UDim2.new(0,totalW,0,totalH)
+h.Position=UDim2.new(0.5,-totalW/2,0.5,-totalH/2)
+h.BackgroundTransparency=1
+h.Parent=sg
+local d={${pixelData.join(',')}}
+-- Create all pixels instantly
+for y=0,h-1 do
+for x=0,w-1 do
+local i=y*w+x+1
+local p=d[i]
+local f=Instance.new("Frame")
+f.Size=UDim2.new(0,s,0,s)
+f.Position=UDim2.new(0,x*s,0,y*s)
+f.BackgroundColor3=Color3.fromRGB(p[1],p[2],p[3])
+f.BorderSizePixel=0
+f.Parent=h
+end
+end
+`;
+      } else {
+        // Generate code with fixed size
+        luaCode = `local sg=Instance.new("ScreenGui")
 sg.Name="${guiName}"
 sg.Parent=game.Players.LocalPlayer:WaitForChild("PlayerGui")
 local h=Instance.new("Frame")
@@ -169,6 +206,7 @@ f.Parent=h
 end
 end
 `;
+      }
 
       const blob = new Blob([luaCode], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
@@ -185,7 +223,7 @@ end
     } finally {
       setIsProcessing(false);
     }
-  }, [imageData, width, height, frameSize, guiName]);
+  }, [imageData, width, height, frameSize, guiName, useViewportSize]);
 
   const generateVideoLuaCode = useCallback(() => {
     if (!videoFrames.length) {
@@ -201,7 +239,8 @@ end
         pixelSize,
         fps,
         videoGuiName,
-        loop
+        loop,
+        useVideoViewportSize
       );
 
       const blob = new Blob([luaCode], { type: 'text/plain' });
@@ -218,7 +257,7 @@ end
       console.error('Error generating video Lua code:', error);
       toast.error('Failed to generate video Lua code');
     }
-  }, [videoFrames, videoWidth, videoHeight, pixelSize, fps, videoGuiName, loop]);
+  }, [videoFrames, videoWidth, videoHeight, pixelSize, fps, videoGuiName, loop, useVideoViewportSize]);
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
@@ -263,10 +302,12 @@ end
                     height={height}
                     frameSize={frameSize}
                     guiName={guiName}
+                    useViewportSize={useViewportSize}
                     onWidthChange={setWidth}
                     onHeightChange={setHeight}
                     onFrameSizeChange={setFrameSize}
                     onGuiNameChange={setGuiName}
+                    onUseViewportSizeChange={setUseViewportSize}
                   />
                 </div>
 
@@ -325,6 +366,7 @@ end
                     maxFrames={maxFrames}
                     startFrame={startFrame}
                     endFrame={endFrame}
+                    useViewportSize={useVideoViewportSize}
                     onWidthChange={setVideoWidth}
                     onHeightChange={setVideoHeight}
                     onPixelSizeChange={setPixelSize}
@@ -335,6 +377,7 @@ end
                     onMaxFramesChange={setMaxFrames}
                     onStartFrameChange={setStartFrame}
                     onEndFrameChange={setEndFrame}
+                    onUseViewportSizeChange={setUseVideoViewportSize}
                   />
                 </div>
 

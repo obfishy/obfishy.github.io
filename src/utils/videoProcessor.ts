@@ -156,7 +156,8 @@ export const generateAnimatedLuaCode = (
   pixelSize: number,
   fps: number,
   guiName: string,
-  loop: boolean = true
+  loop: boolean = true,
+  useViewportSize: boolean = false
 ): string => {
   // Generate optimized Lua code with instant pixel updates
   const frameDataStrings = frames.map(frame => {
@@ -167,7 +168,61 @@ export const generateAnimatedLuaCode = (
     return `  {${pixels.join(',')}}`;
   });
 
-  let luaCode = `-- Pixel Animation by Image to GUI Converter
+  let luaCode = '';
+  
+  if (useViewportSize) {
+    // Generate code that scales to viewport
+    luaCode = `-- Pixel Animation by Image to GUI Converter (Viewport Scaled)
+local sg = Instance.new("ScreenGui")
+sg.Name = "${guiName}"
+sg.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+local cam = workspace.CurrentCamera
+local vp = cam.ViewportSize
+local w, h = ${width}, ${height}
+local s = math.min(vp.X / w, vp.Y / h)
+local totalW, totalH = w * s, h * s
+local h = Instance.new("Frame")
+h.Name = "Holder"
+h.Size = UDim2.new(0, totalW, 0, totalH)
+h.Position = UDim2.new(0.5, -totalW / 2, 0.5, -totalH / 2)
+h.BackgroundTransparency = 1
+h.Parent = sg
+
+-- Pre-create all pixel frames
+local pixels = {}
+for y = 0, h - 1 do
+  for x = 0, w - 1 do
+    local f = Instance.new("Frame")
+    f.Size = UDim2.new(0, s, 0, s)
+    f.Position = UDim2.new(0, x * s, 0, y * s)
+    f.BorderSizePixel = 0
+    f.Parent = h
+    table.insert(pixels, f)
+  end
+end
+
+-- Animation data
+local frames = {
+${frameDataStrings.join(',\n')}
+}
+
+-- Animation loop with instant frame updates
+local currentFrame = 1
+task.spawn(function()
+  while ${loop ? 'true' : 'currentFrame <= #frames'} do
+    local frameData = frames[currentFrame]
+    -- Update all pixels at once for smooth animation
+    for i, p in ipairs(frameData) do
+      pixels[i].BackgroundColor3 = Color3.fromRGB(p[1], p[2], p[3])
+    end
+    currentFrame = currentFrame % #frames + 1
+    task.wait(${1 / fps})
+  end
+end)
+`;
+  } else {
+    // Generate code with fixed pixel size
+    luaCode = `-- Pixel Animation by Image to GUI Converter
 local sg = Instance.new("ScreenGui")
 sg.Name = "${guiName}"
 sg.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
@@ -210,6 +265,7 @@ task.spawn(function()
   end
 end)
 `;
+  }
   
   return luaCode;
 };

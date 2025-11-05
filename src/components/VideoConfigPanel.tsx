@@ -1,6 +1,7 @@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-
+import { Button } from '@/components/ui/button';
+import { Monitor } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
@@ -17,6 +18,7 @@ interface VideoConfigPanelProps {
   maxFrames: number;
   startFrame: number;
   endFrame: number;
+  useViewportSize: boolean;
   onWidthChange: (value: number) => void;
   onHeightChange: (value: number) => void;
   onPixelSizeChange: (value: number) => void;
@@ -27,6 +29,7 @@ interface VideoConfigPanelProps {
   onMaxFramesChange: (value: number) => void;
   onStartFrameChange: (value: number) => void;
   onEndFrameChange: (value: number) => void;
+  onUseViewportSizeChange: (value: boolean) => void;
 }
 
 export const VideoConfigPanel = ({
@@ -40,6 +43,7 @@ export const VideoConfigPanel = ({
   maxFrames,
   startFrame,
   endFrame,
+  useViewportSize,
   onWidthChange,
   onHeightChange,
   onPixelSizeChange,
@@ -50,9 +54,19 @@ export const VideoConfigPanel = ({
   onMaxFramesChange,
   onStartFrameChange,
   onEndFrameChange,
+  onUseViewportSizeChange,
 }: VideoConfigPanelProps) => {
   return (
     <div className="space-y-4">
+      <Button
+        onClick={() => onUseViewportSizeChange(!useViewportSize)}
+        variant={useViewportSize ? "default" : "outline"}
+        className="w-full"
+      >
+        <Monitor className="mr-2 h-4 w-4" />
+        {useViewportSize ? "Using Viewport Size" : "Scale to Viewport Size"}
+      </Button>
+      
       <div>
         <Label htmlFor="quality-preset">Quality Preset</Label>
         <Select value={quality} onValueChange={(value) => onQualityChange(value as QualityPreset)}>
