@@ -181,12 +181,12 @@ local vp = cam.ViewportSize
 local w, h = ${width}, ${height}
 local s = math.min(vp.X / w, vp.Y / h)
 local totalW, totalH = w * s, h * s
-local h = Instance.new("Frame")
-h.Name = "Holder"
-h.Size = UDim2.new(0, totalW, 0, totalH)
-h.Position = UDim2.new(0.5, -totalW / 2, 0.5, -totalH / 2)
-h.BackgroundTransparency = 1
-h.Parent = sg
+local holder = Instance.new("Frame")
+holder.Name = "Holder"
+holder.Size = UDim2.new(0, totalW, 0, totalH)
+holder.Position = UDim2.new(0.5, -totalW / 2, 0.5, -totalH / 2)
+holder.BackgroundTransparency = 1
+holder.Parent = sg
 
 -- Pre-create all pixel frames
 local pixels = {}
@@ -196,7 +196,7 @@ for y = 0, h - 1 do
     f.Size = UDim2.new(0, s, 0, s)
     f.Position = UDim2.new(0, x * s, 0, y * s)
     f.BorderSizePixel = 0
-    f.Parent = h
+    f.Parent = holder
     table.insert(pixels, f)
   end
 end
